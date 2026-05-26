@@ -223,7 +223,7 @@ export function Index() {
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background" />
         </div>
-        <div className="relative mx-auto max-w-7xl px-6 py-20 md:py-32">
+        <div className="relative mx-auto max-w-7xl px-6 py-20 md:py-32 min-h-[70vh] md:min-h-[80vh]">
           <div className="max-w-2xl">
             <p className="text-sm uppercase tracking-[0.3em] text-primary mb-4">★ Premium Sweepstakes ★</p>
             <h1 className="text-5xl md:text-7xl font-bold leading-tight">
@@ -239,11 +239,11 @@ export function Index() {
                   : "You have one spin available — good luck!"
                 : "Score signup bonuses up to 100% and free play credits — then jump straight into your favorite games."}
             </p>
-            <div className="mt-8 flex flex-wrap gap-4">
-              <button onClick={handleHeroSpinClick} className="px-8 py-3 rounded-full bg-gold-gradient text-primary-foreground font-bold uppercase tracking-wider shadow-gold hover:scale-105 transition-transform">
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
+              <button onClick={handleHeroSpinClick} className="w-full sm:w-auto px-8 py-3 rounded-full bg-gold-gradient text-primary-foreground font-bold uppercase tracking-wider shadow-gold hover:scale-105 transition-transform">
                 {!isSignedIn ? "Login to Spin" : !isVerified ? "Verify Email" : "Spin the Wheel"}
               </button>
-              <a href="#games" className="px-8 py-3 rounded-full border-gold text-primary font-bold uppercase tracking-wider hover:bg-primary/10 transition-colors">
+              <a href="#games" className="w-full sm:w-auto px-8 py-3 rounded-full border-gold text-primary font-bold uppercase tracking-wider hover:bg-primary/10 transition-colors text-center">
                 Browse Games
               </a>
             </div>

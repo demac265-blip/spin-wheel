@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const SEGMENTS = [
@@ -40,13 +40,15 @@ export function FortuneWheel({
     if (!isVerified) return;
     if (!canSpin) return;
     if (spinning) return;
+
     setSpinning(true);
     setResult(null);
+
     const winner = Math.floor(Math.random() * SEGMENTS.length);
     const segmentAngle = 360 / SEGMENTS.length;
-    // Land winner under top pointer. Wheel rotates clockwise; segments start at top going clockwise.
     const target = 360 * 6 + (360 - winner * segmentAngle - segmentAngle / 2);
     const finalRotation = rotation + target - (rotation % 360);
+
     setRotation(finalRotation);
     setTimeout(() => {
       setSpinning(false);
@@ -70,69 +72,72 @@ export function FortuneWheel({
   };
 
   return (
-    <div className="flex flex-col items-center gap-8">
-      <div className="relative">
-        {/* Pointer */}
-        <div className="absolute left-1/2 -translate-x-1/2 -top-3 z-20">
+    <div className="mx-auto flex w-full max-w-xl flex-col items-center justify-center">
+      <div className="relative mx-auto flex aspect-square w-full max-w-[320px] sm:max-w-[420px] items-center justify-center">
+        <div className="absolute left-1/2 top-0 -translate-x-1/2 z-20">
           <div className="w-0 h-0 border-l-[18px] border-r-[18px] border-t-[32px] border-l-transparent border-r-transparent border-t-primary drop-shadow-[0_0_10px_oklch(0.82_0.13_85)]" />
         </div>
-        {/* Wheel */}
+
         <div
-          className="rounded-full shadow-gold border-[10px] border-primary"
+          className="mx-auto w-full overflow-hidden rounded-full border-[10px] border-primary shadow-gold"
           style={{
             transform: `rotate(${rotation}deg)`,
             transition: spinning ? "transform 5s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
           }}
         >
-          <svg width="440" height="440" viewBox="0 0 440 440">
-            {SEGMENTS.map((seg, i) => {
-              const startAngle = i * segmentAngle;
-              const endAngle = startAngle + segmentAngle;
-              const start = polarToCartesian(startAngle, radius);
-              const end = polarToCartesian(endAngle, radius);
-              const largeArc = segmentAngle > 180 ? 1 : 0;
-              const path = `M ${cx} ${cy} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
-              const midAngle = startAngle + segmentAngle / 2;
-              const textPos = polarToCartesian(midAngle, radius * 0.65);
-              return (
-                <g key={i}>
-                  <path d={path} fill={seg.color} stroke="#c9a84c" strokeWidth="2" />
-                  <text
-                    x={textPos.x}
-                    y={textPos.y}
-                    fill={seg.color === "#c9a84c" ? "#1a1a1a" : "#f0d78c"}
-                    fontSize="14"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    transform={`rotate(${midAngle}, ${textPos.x}, ${textPos.y})`}
-                    style={{ fontFamily: "Cinzel, serif" }}
-                  >
-                    {seg.label.split(" ").map((word, idx) => (
-                      <tspan key={idx} x={textPos.x} dy={idx === 0 ? "-0.5em" : "1.1em"}>
-                        {word}
-                      </tspan>
-                    ))}
-                  </text>
-                </g>
-              );
-            })}
-            <circle cx={cx} cy={cy} r="28" fill="url(#goldGrad)" stroke="#1a1a1a" strokeWidth="3" />
-            <defs>
-              <radialGradient id="goldGrad">
-                <stop offset="0%" stopColor="#f0d78c" />
-                <stop offset="100%" stopColor="#8b7320" />
-              </radialGradient>
-            </defs>
-          </svg>
+          <div className="aspect-square w-full">
+            <svg className="h-full w-full" viewBox="0 0 440 440" preserveAspectRatio="xMidYMid meet">
+              {SEGMENTS.map((seg, i) => {
+                const startAngle = i * segmentAngle;
+                const endAngle = startAngle + segmentAngle;
+                const start = polarToCartesian(startAngle, radius);
+                const end = polarToCartesian(endAngle, radius);
+                const largeArc = segmentAngle > 180 ? 1 : 0;
+                const path = `M ${cx} ${cy} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
+                const midAngle = startAngle + segmentAngle / 2;
+                const textPos = polarToCartesian(midAngle, radius * 0.65);
+
+                return (
+                  <g key={i}>
+                    <path d={path} fill={seg.color} stroke="#c9a84c" strokeWidth="2" />
+                    <text
+                      x={textPos.x}
+                      y={textPos.y}
+                      fill={seg.color === "#c9a84c" ? "#1a1a1a" : "#f0d78c"}
+                      fontSize="14"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      transform={`rotate(${midAngle}, ${textPos.x}, ${textPos.y})`}
+                      style={{ fontFamily: "Cinzel, serif" }}
+                    >
+                      {seg.label.split(" ").map((word, idx) => (
+                        <tspan key={idx} x={textPos.x} dy={idx === 0 ? "-0.5em" : "1.1em"}>
+                          {word}
+                        </tspan>
+                      ))}
+                    </text>
+                  </g>
+                );
+              })}
+              <circle cx={cx} cy={cy} r="28" fill="url(#goldGrad)" stroke="#1a1a1a" strokeWidth="3" />
+              <defs>
+                <radialGradient id="goldGrad">
+                  <stop offset="0%" stopColor="#f0d78c" />
+                  <stop offset="100%" stopColor="#8b7320" />
+                </radialGradient>
+              </defs>
+            </svg>
+          </div>
         </div>
       </div>
 
-      <button
-        onClick={spin}
-        disabled={spinning || (isSignedIn && !isVerified) || !canSpin}
-        className="px-12 py-4 rounded-full bg-gold-gradient text-primary-foreground font-bold text-lg uppercase tracking-[0.2em] shadow-gold hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
-      >
+      <div className="mt-6 flex flex-col items-center justify-center gap-4 text-center">
+        <button
+          onClick={spin}
+          disabled={spinning || (isSignedIn && !isVerified) || !canSpin}
+          className="px-12 py-4 rounded-full bg-gold-gradient text-primary-foreground font-bold text-lg uppercase tracking-[0.2em] shadow-gold hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+        >
         {spinning
           ? "Spinning..."
           : !isSignedIn
@@ -170,6 +175,7 @@ export function FortuneWheel({
           <p className="mt-2 text-sm text-muted-foreground">Contact an agent to claim your prize 🎉</p>
         </div>
       )}
+      </div>
 
       <Dialog open={winPopupOpen} onOpenChange={setWinPopupOpen}>
         <DialogContent className="sm:max-w-xl border-gold bg-card">
