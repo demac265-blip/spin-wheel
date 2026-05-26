@@ -22,9 +22,9 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dravon Gold — Wanna Get Lucky?" },
-      { name: "description", content: "Spin the Dravon Gold fortune wheel for signup bonuses and freeplay. Play Juwa, Milky Way, GameVault, Cash Machine, Orion Stars & Panda Master." },
-      { property: "og:title", content: "Dravon Gold — Wanna Get Lucky?" },
+      { title: "Dravona Gold — Wanna Get Lucky?" },
+      { name: "description", content: "Spin the Dravona Gold fortune wheel for signup bonuses and freeplay. Play Juwa, Milky Way, GameVault, Cash Machine, Orion Stars & Panda Master." },
+      { property: "og:title", content: "Dravona Gold — Wanna Get Lucky?" },
       { property: "og:description", content: "Spin the fortune wheel for bonuses and play the hottest sweepstakes games." },
     ],
   }),
@@ -75,7 +75,7 @@ const PAYMENT_OPTIONS = [
     name: "Cash App",
     logo: cashappLogo,
     qr: "/qr/cashapp.jpg",
-    url: "https://cash.app/$DravonGold",
+    url: "https://cash.app/$DravonaGold",
     description: "Scan this QR code to send payment via Cash App.",
   },
   {
@@ -89,7 +89,7 @@ const PAYMENT_OPTIONS = [
     name: "PayPal",
     logo: paypalLogo,
     qr: "/qr/paypal.png",
-    url: "https://paypal.me/DravonGold",
+    url: "https://paypal.me/DravonaGold",
     description: "Scan this QR code to send payment via PayPal.",
   },
 ];
@@ -194,7 +194,7 @@ export function Index() {
       <header className="sticky top-0 z-50 border-b border-gold backdrop-blur-md bg-background/70">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <a href="/" className="text-2xl font-display font-bold text-gold-gradient tracking-wider">
-            🌹 Dravon Gold
+            🌹 Dravona Gold
           </a>
           <nav className="hidden md:flex gap-8 text-sm uppercase tracking-wider text-muted-foreground">
             <a href="#wheel" className="hover:text-primary transition-colors">Fortune Wheel</a>
@@ -325,7 +325,7 @@ export function Index() {
             ))}
           </div>
           <p className="mt-8 text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Dravon Gold. All rights reserved. Play responsibly. 18+
+            © {new Date().getFullYear()} Dravona Gold. All rights reserved. Play responsibly. 18+
           </p>
         </div>
       </footer>
