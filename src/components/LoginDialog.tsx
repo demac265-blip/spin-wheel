@@ -47,7 +47,7 @@ export function LoginDialog({ open, onOpenChange, onSignIn }: LoginDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md border-gold bg-card">
         <DialogHeader className="text-center items-center">
-          <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">🌹 Rose Plays</p>
+          <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">🌹 Dravon Gold</p>
           <DialogTitle className="text-3xl font-display text-gold-gradient">
             {mode === "login" ? "Welcome Back, High Roller" : "Join the Table"}
           </DialogTitle>
@@ -66,7 +66,7 @@ export function LoginDialog({ open, onOpenChange, onSignIn }: LoginDialogProps) 
               value={email}
               onChange={(event) => setEmail(event.currentTarget.value)}
               required
-              placeholder="hello@roseplays.com"
+              placeholder="hello@dravongold.com"
               className="w-full px-4 py-3 rounded-xl bg-background border-gold text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               disabled={loading}
             />
