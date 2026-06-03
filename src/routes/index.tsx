@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { applyActionCode, onAuthStateChanged, reload, signOut, sendEmailVerification } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -13,7 +13,7 @@ import pandamasterImg from "@/assets/game-pandamaster.jpg";
 import cashappLogo from "@/assets/pay-cashapp.png";
 import chimeLogo from "@/assets/pay-chime.png";
 import paypalLogo from "@/assets/pay-paypal.png";
-import { getDailyWheelers } from "@/lib/daily-wheelers";
+import { generateTopWinners, Wheeler } from "@/lib/daily-wheelers";
 import { GameCard } from "@/components/GameCard";
 import { FortuneWheel } from "@/components/FortuneWheel";
 import { LoginDialog } from "@/components/LoginDialog";
@@ -95,7 +95,6 @@ const PAYMENT_OPTIONS = [
 ];
 
 export function Index() {
-  const wheelers = useMemo(() => getDailyWheelers(), []);
   const [loginOpen, setLoginOpen] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
@@ -104,6 +103,8 @@ export function Index() {
   const [lastSpinAt, setLastSpinAt] = useState<Date | null>(null);
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [spinReady, setSpinReady] = useState(false);
+  const [topWinners, setTopWinners] = useState<Wheeler[]>([]);
+  const [topWinnersLoading, setTopWinnersLoading] = useState(true);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<typeof PAYMENT_OPTIONS[number] | null>(null);
   const [verificationInfo, setVerificationInfo] = useState<string | null>(null);
@@ -166,6 +167,55 @@ export function Index() {
   };
 
   useEffect(() => {
+    const loadTopWinners = async () => {
+      setTopWinnersLoading(true);
+      try {
+        const topWinnersDoc = doc(db, "siteStats", "topWinners");
+        const snapshot = await getDoc(topWinnersDoc);
+        const now = Timestamp.now();
+
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          const expiresAt = data?.expiresAt;
+          const winners = data?.winners as Array<{ name: string; amount: number }> | undefined;
+
+          if (
+            expiresAt instanceof Timestamp &&
+            expiresAt.toMillis() > now.toMillis() &&
+            Array.isArray(winners) &&
+            winners.length === 3 &&
+            winners.every((winner) => typeof winner.name === "string" && typeof winner.amount === "number")
+          ) {
+            const sortedWinners = [...winners]
+              .sort((a, b) => b.amount - a.amount)
+              .map((winner, index) => ({ rank: index + 1, ...winner }));
+            setTopWinners(sortedWinners);
+            setTopWinnersLoading(false);
+            return;
+          }
+        }
+
+        const generatedWinners = generateTopWinners();
+        const expiresAt = Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+        await setDoc(topWinnersDoc, {
+          winners: generatedWinners.map(({ name, amount }) => ({ name, amount })),
+          generatedAt: serverTimestamp(),
+          expiresAt,
+        });
+
+        setTopWinners(generatedWinners);
+      } catch (error) {
+        console.error("Unable to load top winners:", error);
+        const fallbackWinners = generateTopWinners();
+        setTopWinners(fallbackWinners);
+      } finally {
+        setTopWinnersLoading(false);
+      }
+    };
+
+    loadTopWinners();
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setIsSignedIn(!!user);
       setIsVerified(!!user && user.emailVerified);
@@ -432,24 +482,28 @@ export function Index() {
       <section id="winners" className="mx-auto max-w-7xl px-6 py-16">
         <div className="text-center mb-10">
           <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Hall of Fame</p>
-          <h2 className="mt-2 text-3xl md:text-4xl text-gold-gradient">Yesterday's Top 3 Wheelers</h2>
+          <h2 className="mt-2 text-3xl md:text-4xl text-gold-gradient">Yesterday's Top 3 Winners</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-4">
-          {wheelers.map((w) => (
-            <div
-              key={w.rank}
-              className="relative rounded-2xl border-gold bg-card p-6 flex items-center gap-4 hover:shadow-gold transition-shadow"
-            >
-              <div className="text-5xl font-display font-bold text-gold-gradient w-12 text-center">
-                {w.rank}
+          {topWinnersLoading ? (
+            <div className="col-span-3 rounded-2xl border-gold bg-card p-8 text-center text-muted-foreground">Loading top winners...</div>
+          ) : (
+            topWinners.map((w) => (
+              <div
+                key={w.rank}
+                className="relative rounded-2xl border-gold bg-card p-6 flex items-center gap-4 hover:shadow-gold transition-shadow"
+              >
+                <div className="text-5xl font-display font-bold text-gold-gradient w-12 text-center">
+                  {w.rank}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-lg">{w.name}</p>
+                  <p className="text-2xl font-bold text-primary">${w.amount.toFixed(0)}</p>
+                </div>
+                {w.rank === 1 && <div className="absolute -top-3 -right-3 text-3xl">👑</div>}
               </div>
-              <div className="flex-1">
-                <p className="font-semibold text-lg">{w.name}</p>
-                <p className="text-2xl font-bold text-primary">${w.amount.toFixed(2)}</p>
-              </div>
-              {w.rank === 1 && <div className="absolute -top-3 -right-3 text-3xl">👑</div>}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 

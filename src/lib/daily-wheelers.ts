@@ -51,3 +51,19 @@ export function getDailyWheelers(date = new Date()): Wheeler[] {
     .sort((a, b) => b - a);
   return picked.map((name, i) => ({ rank: i + 1, name, amount: amounts[i] }));
 }
+
+export function generateTopWinners(): Wheeler[] {
+  const pool = [...NAMES];
+  const winners: Omit<Wheeler, "rank">[] = [];
+
+  for (let i = 0; i < 3; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    const name = pool.splice(idx, 1)[0];
+    const amount = Math.floor(Math.random() * 351) + 150;
+    winners.push({ name, amount });
+  }
+
+  return winners
+    .sort((a, b) => b.amount - a.amount)
+    .map((winner, index) => ({ rank: index + 1, ...winner }));
+}
