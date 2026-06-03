@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged, reload, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { applyActionCode, onAuthStateChanged, reload, signOut, sendEmailVerification } from "firebase/auth";
+import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import heroImg from "@/assets/hero.jpg";
 import juwaImg from "@/assets/game-juwa.jpg";
@@ -101,13 +101,68 @@ export function Index() {
   const [isVerified, setIsVerified] = useState(false);
   const [userDisplay, setUserDisplay] = useState<string | null>(null);
   const [hasSpun, setHasSpun] = useState(false);
+  const [lastSpinAt, setLastSpinAt] = useState<Date | null>(null);
+  const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
+  const [spinReady, setSpinReady] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<typeof PAYMENT_OPTIONS[number] | null>(null);
+  const [verificationInfo, setVerificationInfo] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [verificationRedirectInfo, setVerificationRedirectInfo] = useState<string | null>(null);
+  const [verificationRedirectError, setVerificationRedirectError] = useState<string | null>(null);
+
+  const actionCodeSettings = {
+    url: "https://dravonagold.com/login",
+    handleCodeInApp: false,
+  };
 
   const loadUserSpinState = async (uid: string) => {
     const spinDoc = doc(db, "wheelSpins", uid);
     const snapshot = await getDoc(spinDoc);
-    setHasSpun(snapshot.exists());
+    if (!snapshot.exists()) {
+      setHasSpun(false);
+      setLastSpinAt(null);
+      setCountdownSeconds(null);
+      setSpinReady(false);
+      return;
+    }
+
+    const data = snapshot.data();
+    const rawTimestamp = data?.lastSpinAt ?? data?.createdAt;
+    let spinDate: Date | null = null;
+
+    if (rawTimestamp instanceof Timestamp) {
+      spinDate = rawTimestamp.toDate();
+    } else if (rawTimestamp instanceof Date) {
+      spinDate = rawTimestamp;
+    } else if (typeof rawTimestamp === "string") {
+      const parsed = new Date(rawTimestamp);
+      if (!Number.isNaN(parsed.getTime())) {
+        spinDate = parsed;
+      }
+    }
+
+    if (!spinDate) {
+      setHasSpun(false);
+      setLastSpinAt(null);
+      setCountdownSeconds(null);
+      setSpinReady(false);
+      return;
+    }
+
+    const expiry = spinDate.getTime() + 24 * 60 * 60 * 1000;
+    const remainingMs = expiry - Date.now();
+    if (remainingMs <= 0) {
+      setHasSpun(false);
+      setLastSpinAt(spinDate);
+      setCountdownSeconds(null);
+      setSpinReady(true);
+    } else {
+      setHasSpun(true);
+      setLastSpinAt(spinDate);
+      setCountdownSeconds(Math.ceil(remainingMs / 1000));
+      setSpinReady(false);
+    }
   };
 
   useEffect(() => {
@@ -115,12 +170,83 @@ export function Index() {
       setIsSignedIn(!!user);
       setIsVerified(!!user && user.emailVerified);
       setUserDisplay(user ? user.displayName || user.email || null : null);
+      setVerificationInfo(null);
+      setVerificationError(null);
       setHasSpun(false);
+      setLastSpinAt(null);
+      setCountdownSeconds(null);
+      setSpinReady(false);
       if (user) {
         await loadUserSpinState(user.uid);
       }
     });
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!lastSpinAt) {
+      return;
+    }
+
+    const expiry = lastSpinAt.getTime() + 24 * 60 * 60 * 1000;
+
+    const updateCountdown = () => {
+      const remainingMs = expiry - Date.now();
+      if (remainingMs <= 0) {
+        setCountdownSeconds(null);
+        setHasSpun(false);
+        setSpinReady(true);
+        setLastSpinAt(null);
+        return;
+      }
+
+      setCountdownSeconds(Math.ceil(remainingMs / 1000));
+      setSpinReady(false);
+    };
+
+    updateCountdown();
+    const interval = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(interval);
+  }, [lastSpinAt]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("mode");
+    const oobCode = params.get("oobCode");
+
+    if (mode !== "verifyEmail" || !oobCode) return;
+
+    const verifyEmail = async () => {
+      setVerificationRedirectInfo(null);
+      setVerificationRedirectError(null);
+
+      try {
+        await applyActionCode(auth, oobCode);
+
+        const user = auth.currentUser;
+        if (user) {
+          await reload(user);
+          const verified = user.emailVerified;
+          setIsVerified(verified);
+          setVerificationRedirectInfo("Email verified successfully. Please log in to continue.");
+          setLoginOpen(!verified);
+        } else {
+          setVerificationRedirectInfo("Email verified successfully. Please log in to continue.");
+          setLoginOpen(true);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to verify email. Please try again.";
+        setVerificationRedirectError(message);
+        setLoginOpen(true);
+      } finally {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState(null, "", cleanUrl);
+      }
+    };
+
+    verifyEmail();
   }, []);
 
   const refreshVerification = async () => {
@@ -131,10 +257,13 @@ export function Index() {
       await reload(user);
       setIsVerified(user.emailVerified);
       if (user.emailVerified) {
+        setVerificationInfo("Your email is verified. You can now use the site.");
+        setVerificationError(null);
         await loadUserSpinState(user.uid);
       }
     } catch (error) {
       console.error("Failed to refresh verification status:", error);
+      setVerificationError("Unable to verify your email status. Please try again.");
     }
   };
 
@@ -159,6 +288,26 @@ export function Index() {
     setPaymentModalOpen(true);
   };
 
+  const handleResendVerification = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      setVerificationError("Please sign in to resend your verification email.");
+      setVerificationInfo(null);
+      return;
+    }
+
+    setVerificationError(null);
+    setVerificationInfo(null);
+
+    try {
+      await sendEmailVerification(user, actionCodeSettings);
+      setVerificationInfo("A new verification email has been sent. Please check your inbox and spam folder.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to resend verification email. Please try again.";
+      setVerificationError(message);
+    }
+  };
+
   const handleHeroSpinClick = () => {
     if (!isSignedIn) {
       setLoginOpen(true);
@@ -178,12 +327,16 @@ export function Index() {
 
     try {
       const spinDoc = doc(db, "wheelSpins", auth.currentUser.uid);
+      const now = new Date();
       await setDoc(spinDoc, {
         uid: auth.currentUser.uid,
         result,
-        createdAt: new Date(),
+        lastSpinAt: serverTimestamp(),
       });
       setHasSpun(true);
+      setLastSpinAt(now);
+      setCountdownSeconds(24 * 60 * 60);
+      setSpinReady(false);
     } catch (error) {
       console.error("Failed to save spin state:", error);
     }
@@ -235,7 +388,7 @@ export function Index() {
             <p className="mt-4 text-base text-muted-foreground max-w-lg">
               {isSignedIn
                 ? !isVerified
-                  ? "Please verify your email before using your spin."
+                  ? "Please verify your email before using the site."
                   : "You have one spin available — good luck!"
                 : "Score signup bonuses up to 100% and free play credits — then jump straight into your favorite games."}
             </p>
@@ -266,6 +419,11 @@ export function Index() {
           canSpin={!hasSpun}
           onRequestLogin={() => setLoginOpen(true)}
           onRequestVerificationCheck={refreshVerification}
+          onResendVerification={handleResendVerification}
+          verificationInfo={verificationInfo}
+          verificationError={verificationError}
+          countdownSeconds={countdownSeconds}
+          spinReady={spinReady}
           onSpinComplete={handleSpinComplete}
         />
       </section>
@@ -370,7 +528,13 @@ export function Index() {
         </DialogContent>
       </Dialog>
 
-      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} onSignIn={handleSignIn} />
+      <LoginDialog
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        onSignIn={handleSignIn}
+        initialInfo={verificationRedirectInfo}
+        initialError={verificationRedirectError}
+      />
     </div>
   );
 }

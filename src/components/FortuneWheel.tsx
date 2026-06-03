@@ -14,17 +14,36 @@ interface FortuneWheelProps {
   isSignedIn: boolean;
   isVerified: boolean;
   canSpin: boolean;
+  spinReady: boolean;
+  countdownSeconds: number | null;
   onRequestLogin: () => void;
   onRequestVerificationCheck: () => void;
+  onResendVerification?: () => void;
+  verificationInfo?: string | null;
+  verificationError?: string | null;
   onSpinComplete: (result: string) => void;
+}
+
+function formatCountdown(seconds: number) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs
+    .toString()
+    .padStart(2, "0")}`;
 }
 
 export function FortuneWheel({
   isSignedIn,
   isVerified,
   canSpin,
+  spinReady,
+  countdownSeconds,
   onRequestLogin,
   onRequestVerificationCheck,
+  onResendVerification,
+  verificationInfo,
+  verificationError,
   onSpinComplete,
 }: FortuneWheelProps) {
   const [rotation, setRotation] = useState(0);
@@ -149,19 +168,43 @@ export function FortuneWheel({
           : "Spin the Wheel"}
       </button>
 
-      {!isSignedIn && !spinning && (
-        <p className="mt-3 text-sm text-muted-foreground">You must sign in before spinning the wheel.</p>
-      )}
+        {isSignedIn && isVerified && countdownSeconds !== null && countdownSeconds > 0 && (
+          <div className="rounded-3xl border border-gold/20 bg-background/80 px-5 py-4 text-sm text-primary-foreground shadow-[0_0_20px_rgba(201,168,76,0.1)]">
+            <p className="font-semibold uppercase tracking-[0.18em] text-muted-foreground">Next spin available in</p>
+            <p className="mt-2 text-3xl font-display font-bold text-gold-gradient">{formatCountdown(countdownSeconds)}</p>
+          </div>
+        )}
+
+        {isSignedIn && isVerified && spinReady && (
+          <p className="mt-3 text-sm text-emerald-300">Your spin is ready! Tap the wheel to play again.</p>
+        )}
+
+        {!isSignedIn && !spinning && (
+          <p className="mt-3 text-sm text-muted-foreground">You must sign in before spinning the wheel.</p>
+        )}
       {isSignedIn && !isVerified && !spinning && (
         <div className="flex flex-col items-center gap-3 mt-3 text-sm text-muted-foreground">
-          <p>Please verify your email before spinning the wheel.</p>
-          <button
-            type="button"
-            onClick={onRequestVerificationCheck}
-            className="rounded-full px-5 py-2 bg-primary text-primary-foreground font-semibold transition hover:bg-primary/90"
-          >
-            Check Verification Status
-          </button>
+          <p>Please verify your email before using the site.</p>
+          {verificationInfo && <p className="text-sm text-primary">{verificationInfo}</p>}
+          {verificationError && <p className="text-sm text-destructive">{verificationError}</p>}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onRequestVerificationCheck}
+              className="rounded-full px-5 py-2 bg-primary text-primary-foreground font-semibold transition hover:bg-primary/90"
+            >
+              Check Verification Status
+            </button>
+            {onResendVerification ? (
+              <button
+                type="button"
+                onClick={onResendVerification}
+                className="rounded-full px-5 py-2 bg-secondary text-secondary-foreground font-semibold transition hover:bg-secondary/90"
+              >
+                Resend Verification Email
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
       {isSignedIn && isVerified && !canSpin && !spinning && (

@@ -1,5 +1,10 @@
-import { FormEvent, useState } from "react";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+} from "firebase/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { auth } from "@/lib/firebase";
 
@@ -7,15 +12,120 @@ interface LoginDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSignIn?: () => void;
+  initialInfo?: string | null;
+  initialError?: string | null;
 }
 
-export function LoginDialog({ open, onOpenChange, onSignIn }: LoginDialogProps) {
+export function LoginDialog({ open, onOpenChange, onSignIn, initialInfo = null, initialError = null }: LoginDialogProps) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  const actionCodeSettings = {
+    url: "https://dravonagold.com/login",
+    handleCodeInApp: false,
+  };
+
+  useEffect(() => {
+    if (initialInfo) {
+      setInfo(initialInfo);
+      setError(null);
+    }
+
+    if (initialError) {
+      setError(initialError);
+      setInfo(null);
+    }
+  }, [initialInfo, initialError]);
+
+  const getFriendlyAuthMessage = (authError: unknown, fallback: string) => {
+    if (
+      typeof authError === "object" &&
+      authError !== null &&
+      "code" in authError &&
+      typeof (authError as any).code === "string"
+    ) {
+      switch ((authError as any).code) {
+        case "auth/user-not-found":
+          return "No account found for that email address.";
+        case "auth/wrong-password":
+          return "Incorrect password. Please try again.";
+        case "auth/invalid-email":
+          return "Please enter a valid email address.";
+        case "auth/email-already-in-use":
+          return "This email is already in use. Please use a different email or sign in.";
+        case "auth/too-many-requests":
+          return "Too many attempts. Please wait a moment and try again.";
+        case "auth/network-request-failed":
+          return "Network error. Please check your connection and try again.";
+        case "auth/user-disabled":
+          return "This account has been disabled. Contact support for help.";
+        default:
+          return authError instanceof Error ? authError.message : fallback;
+      }
+    }
+
+    if (authError instanceof Error && authError.message) {
+      return authError.message;
+    }
+
+    return fallback;
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setError("Please enter your email address first.");
+      setInfo(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+
+    try {
+      await sendPasswordResetEmail(auth, email, actionCodeSettings);
+      setInfo("Password reset email sent. Please check your inbox and spam folder.");
+    } catch (authError: unknown) {
+      const message = getFriendlyAuthMessage(
+        authError,
+        "Unable to reset password. Please check your email address and try again."
+      );
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    const user = auth.currentUser;
+
+    if (!user) {
+      setError("Please log in first to resend your verification email.");
+      setInfo(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+
+    try {
+      await sendEmailVerification(user, actionCodeSettings);
+      setInfo("Verification email sent. Please check your inbox and spam folder.");
+    } catch (authError: unknown) {
+      const message = getFriendlyAuthMessage(
+        authError,
+        "Unable to resend verification email. Please try again later."
+      );
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -25,23 +135,47 @@ export function LoginDialog({ open, onOpenChange, onSignIn }: LoginDialogProps) 
 
     try {
       if (mode === "login") {
-        await signInWithEmailAndPassword(auth, email, password);
-        onSignIn?.();
-        onOpenChange(false);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+        if (userCredential.user.emailVerified) {
+          onSignIn?.();
+          onOpenChange(false);
+        } else {
+          setError("Please verify your email before using the site.");
+          setInfo(null);
+        }
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         if (userCredential.user) {
-          await sendEmailVerification(userCredential.user);
-          setInfo("A verification email has been sent. Please verify your email before spinning the wheel.");
+          await sendEmailVerification(userCredential.user, actionCodeSettings);
+          setError(null);
+          setInfo("Verification email sent. Please check your inbox and spam folder.");
         }
       }
     } catch (authError: unknown) {
-      const message = authError instanceof Error ? authError.message : "Unable to authenticate.";
+      const message = getFriendlyAuthMessage(
+        authError,
+        mode === "login"
+          ? "Unable to sign in. Please check your email and password and try again."
+          : "Unable to create account. Please check your information and try again."
+      );
       setError(message);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (initialInfo) {
+      setInfo(initialInfo);
+      setError(null);
+    }
+
+    if (initialError) {
+      setError(initialError);
+      setInfo(null);
+    }
+  }, [initialInfo, initialError]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -94,6 +228,27 @@ export function LoginDialog({ open, onOpenChange, onSignIn }: LoginDialogProps) 
           >
             {loading ? (mode === "login" ? "Signing in..." : "Creating account...") : mode === "login" ? "Sign In & Spin" : "Create Account"}
           </button>
+
+          {mode === "login" ? (
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handlePasswordReset}
+                disabled={loading}
+                className="text-xs uppercase tracking-[0.2em] text-gold-gradient font-bold hover:underline disabled:opacity-50 disabled:cursor-not-allowed text-left"
+              >
+                Forgot password?
+              </button>
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={loading}
+                className="text-xs uppercase tracking-[0.2em] text-gold-gradient font-bold hover:underline disabled:opacity-50 disabled:cursor-not-allowed text-left"
+              >
+                Resend verification email
+              </button>
+            </div>
+          ) : null}
         </form>
 
         <div className="text-center text-sm text-muted-foreground pt-2 border-t border-gold/30">
